@@ -38,40 +38,141 @@ class PriceCalculatorSpecTest {
         calculator = new PriceCalculator();
     }
 
-    // -----------------------------------------------------------------------
-    // TODO: Write your tests below.
-    //
-    // EXAMPLE STRUCTURE (replace with real cases):
-    //
-    // /** Partition: zero base price — result must always be 0 regardless of rates */
-    // @Test
-    // void zeroPriceAlwaysReturnsZero() {
-    //     assertThat(calculator.calculate(0, 20, 10)).isEqualTo(0.0);
-    // }
-    //
-    // /** Boundary: discountRate at lower bound (0%) — no reduction applied */
-    // @Test
-    // void discountRateZeroMeansNoDiscount() {
-    //     double result = calculator.calculate(100, 0, 0);
-    //     assertThat(result).isEqualTo(100.0);
-    // }
-    //
-    // /** Boundary: discountRate at upper bound (100%) — full discount wipes price to 0 */
-    // @Test
-    // void discountRateHundredMeansFullDiscount() {
-    //     double result = calculator.calculate(100, 100, 0);
-    //     assertThat(result).isEqualTo(0.0);
-    // }
-    //
-    // /** Partition: typical values — check formula correctness */
-    // @ParameterizedTest(name = "base={0}, disc={1}%, tax={2}% => {3}")
-    // @CsvSource({
-    //     "100.0, 10.0, 20.0, 108.0",
-    //     "200.0,  0.0, 10.0, 220.0",
-    // })
-    // void typicalValues(double base, double disc, double tax, double expected) {
-    //     assertThat(calculator.calculate(base, disc, tax)).isCloseTo(expected, within(0.001));
-    // }
-    // -----------------------------------------------------------------------
+    /** Partition: zero base price — result must always be 0 regardless of discount and tax rates. */
+    @Test
+    void zeroBasePriceReturnsZero() {
+        double result = calculator.calculate(0.0, 25.0, 18.0);
 
+        assertThat(result).isCloseTo(0.0, within(0.0001));
+    }
+
+    /** Partition: positive base price with typical discount and tax values — verifies the main formula. */
+    @ParameterizedTest(name = "base={0}, discount={1}%, tax={2}% => expected={3}")
+    @CsvSource({
+            "100.0, 10.0, 20.0, 108.0",
+            "200.0, 25.0, 10.0, 165.0",
+            "49.99, 15.0, 8.0, 45.89082"
+    })
+    void typicalValidValuesApplyDiscountThenTax(
+            double basePrice,
+            double discountRate,
+            double taxRate,
+            double expected
+    ) {
+        double result = calculator.calculate(basePrice, discountRate, taxRate);
+
+        assertThat(result).isCloseTo(expected, within(0.0001));
+    }
+
+    /** Boundary: discountRate at lower bound 0% — no reduction is applied, only tax changes the price. */
+    @Test
+    void discountRateZeroMeansNoDiscount() {
+        double result = calculator.calculate(100.0, 0.0, 20.0);
+
+        assertThat(result).isCloseTo(120.0, within(0.0001));
+    }
+
+    /** Boundary: taxRate at lower bound 0% — no tax is applied, only discount changes the price. */
+    @Test
+    void taxRateZeroMeansNoTax() {
+        double result = calculator.calculate(100.0, 30.0, 0.0);
+
+        assertThat(result).isCloseTo(70.0, within(0.0001));
+    }
+
+    /** Boundary: discountRate at upper bound 100% — full discount wipes the price to 0. */
+    @Test
+    void discountRateHundredMeansFullDiscount() {
+        double result = calculator.calculate(100.0, 100.0, 20.0);
+
+        assertThat(result).isCloseTo(0.0, within(0.0001));
+    }
+
+    /** Boundary: taxRate at upper bound 100% — discounted price is doubled. */
+    @Test
+    void taxRateHundredMeansPriceIsDoubledAfterDiscount() {
+        double result = calculator.calculate(100.0, 25.0, 100.0);
+
+        assertThat(result).isCloseTo(150.0, within(0.0001));
+    }
+
+    /** Boundary/off-point: discountRate just above 0% — price is reduced slightly. */
+    @Test
+    void discountRateJustAboveZeroReducesPriceSlightly() {
+        double result = calculator.calculate(100.0, 0.01, 0.0);
+
+        assertThat(result).isCloseTo(99.99, within(0.0001));
+    }
+
+    /** Boundary/off-point: discountRate just below 100% — only a very small amount remains. */
+    @Test
+    void discountRateJustBelowHundredLeavesTinyPositiveAmount() {
+        double result = calculator.calculate(100.0, 99.99, 0.0);
+
+        assertThat(result).isCloseTo(0.01, within(0.0001));
+    }
+
+    /** Boundary/off-point: taxRate just above 0% — price is increased slightly. */
+    @Test
+    void taxRateJustAboveZeroIncreasesPriceSlightly() {
+        double result = calculator.calculate(100.0, 0.0, 0.01);
+
+        assertThat(result).isCloseTo(100.01, within(0.0001));
+    }
+
+    /** Boundary/off-point: taxRate just below 100% — price is almost doubled. */
+    @Test
+    void taxRateJustBelowHundredAlmostDoublesPrice() {
+        double result = calculator.calculate(100.0, 0.0, 99.99);
+
+        assertThat(result).isCloseTo(199.99, within(0.0001));
+    }
+
+    /** Partition: very large positive base price — calculation should still follow the same formula. */
+    @Test
+    void veryLargeBasePriceUsesSameFormula() {
+        double result = calculator.calculate(1_000_000.0, 12.5, 18.0);
+
+        assertThat(result).isCloseTo(1_032_500.0, within(0.0001));
+    }
+
+    /** Invalid partition: negative basePrice — current implementation does not reject it and returns a negative result. */
+    @Test
+    void negativeBasePriceDocumentsCurrentBehavior() {
+        double result = calculator.calculate(-100.0, 10.0, 20.0);
+
+        assertThat(result).isCloseTo(-108.0, within(0.0001));
+    }
+
+    /** Invalid partition: negative discountRate — current implementation treats it like a price increase. */
+    @Test
+    void negativeDiscountRateDocumentsCurrentBehavior() {
+        double result = calculator.calculate(100.0, -10.0, 0.0);
+
+        assertThat(result).isCloseTo(110.0, within(0.0001));
+    }
+
+    /** Invalid partition: discountRate greater than 100% — current implementation can produce a negative price. */
+    @Test
+    void discountRateGreaterThanHundredDocumentsCurrentBehavior() {
+        double result = calculator.calculate(100.0, 150.0, 0.0);
+
+        assertThat(result).isCloseTo(-50.0, within(0.0001));
+    }
+
+    /** Invalid partition: negative taxRate — current implementation treats it like a price reduction. */
+    @Test
+    void negativeTaxRateDocumentsCurrentBehavior() {
+        double result = calculator.calculate(100.0, 0.0, -10.0);
+
+        assertThat(result).isCloseTo(90.0, within(0.0001));
+    }
+
+    /** Invalid partition: taxRate greater than 100% — current implementation accepts it and increases the price heavily. */
+    @Test
+    void taxRateGreaterThanHundredDocumentsCurrentBehavior() {
+        double result = calculator.calculate(100.0, 0.0, 150.0);
+
+        assertThat(result).isCloseTo(250.0, within(0.0001));
+    }
 }
