@@ -38,35 +38,125 @@ import static org.assertj.core.api.Assertions.*;
  */
 class ShopEasyPropertyTest {
 
-    // -----------------------------------------------------------------------
-    // TODO: Write your properties below.
-    //
-    // EXAMPLE STRUCTURE:
-    //
-    // /**
-    //  * Property: The final price is always non-negative.
-    //  * Bug class caught: any implementation path that produces a negative result
-    //  *                   (e.g., discount > 100 applied to negative base).
-    //  */
-    // @Property
-    // void finalPriceIsNeverNegative(
-    //         @ForAll @DoubleRange(min = 0, max = 10_000) double base,
-    //         @ForAll @DoubleRange(min = 0, max = 100)   double discount,
-    //         @ForAll @DoubleRange(min = 0, max = 100)   double tax) {
-    //
-    //     PriceCalculator calc = new PriceCalculator();
-    //     double result = calc.calculate(base, discount, tax);
-    //     assertThat(result).isGreaterThanOrEqualTo(0.0);
-    // }
-    //
-    // // Custom provider example:
-    // @Provide
-    // Arbitrary<Product> validProducts() {
-    //     return Combinators.combine(
-    //             Arbitraries.strings().alpha().ofMinLength(1).ofMaxLength(5),
-    //             Arbitraries.doubles().between(0.01, 500.0)
-    //     ).as((name, price) -> new Product("P-" + name, name, price, 100));
-    // }
-    // -----------------------------------------------------------------------
+    /**
+     * Property: With 0% discount and 0% tax, the final price is exactly the base price.
+     * Bug class caught: accidental tax/discount application or wrong formula constants.
+     */
+    @Property
+    void identityWithNoDiscountAndNoTax(
+            @ForAll @DoubleRange(min = 0.0, max = 10_000.0) double basePrice
+    ) {
+        PriceCalculator calculator = new PriceCalculator();
 
+        double result = calculator.calculate(basePrice, 0.0, 0.0);
+
+        assertThat(result).isCloseTo(basePrice, within(0.0001));
+    }
+
+    /**
+     * Property: For the same base price and tax rate, a higher discount never increases the final price.
+     * Bug class caught: discount sign errors, such as adding the discount instead of subtracting it.
+     */
+    @Property
+    void higherDiscountNeverIncreasesFinalPrice(
+            @ForAll @DoubleRange(min = 0.0, max = 10_000.0) double basePrice,
+            @ForAll @DoubleRange(min = 0.0, max = 100.0) double firstDiscount,
+            @ForAll @DoubleRange(min = 0.0, max = 100.0) double secondDiscount,
+            @ForAll @DoubleRange(min = 0.0, max = 100.0) double taxRate
+    ) {
+        PriceCalculator calculator = new PriceCalculator();
+
+        double lowerDiscount = Math.min(firstDiscount, secondDiscount);
+        double higherDiscount = Math.max(firstDiscount, secondDiscount);
+
+        double priceWithLowerDiscount = calculator.calculate(basePrice, lowerDiscount, taxRate);
+        double priceWithHigherDiscount = calculator.calculate(basePrice, higherDiscount, taxRate);
+
+        assertThat(priceWithHigherDiscount).isLessThanOrEqualTo(priceWithLowerDiscount + 0.0001);
+    }
+
+    /**
+     * Property: For valid inputs, the final price is non-negative and cannot exceed double the base price.
+     * Bug class caught: negative prices, excessive tax application, or formula order/sign mistakes.
+     */
+    @Property
+    void finalPriceIsAlwaysWithinValidBounds(
+            @ForAll @DoubleRange(min = 0.0, max = 10_000.0) double basePrice,
+            @ForAll @DoubleRange(min = 0.0, max = 100.0) double discountRate,
+            @ForAll @DoubleRange(min = 0.0, max = 100.0) double taxRate
+    ) {
+        PriceCalculator calculator = new PriceCalculator();
+
+        double result = calculator.calculate(basePrice, discountRate, taxRate);
+
+        assertThat(result).isGreaterThanOrEqualTo(0.0);
+        assertThat(result).isLessThanOrEqualTo((basePrice * 2.0) + 0.0001);
+    }
+
+    /**
+     * Property: Adding two distinct products in either order produces the same cart total.
+     * Bug class caught: order-dependent total calculation or incorrect cart aggregation.
+     */
+    @Property
+    void addingDistinctProductsInDifferentOrderKeepsSameTotal(
+            @ForAll("distinctProductPairs") ProductPair pair,
+            @ForAll @IntRange(min = 1, max = 100) int firstQuantity,
+            @ForAll @IntRange(min = 1, max = 100) int secondQuantity
+    ) {
+        ShoppingCart firstCart = new ShoppingCart();
+        firstCart.addItem(pair.first(), firstQuantity);
+        firstCart.addItem(pair.second(), secondQuantity);
+
+        ShoppingCart secondCart = new ShoppingCart();
+        secondCart.addItem(pair.second(), secondQuantity);
+        secondCart.addItem(pair.first(), firstQuantity);
+
+        assertThat(firstCart.total()).isCloseTo(secondCart.total(), within(0.0001));
+    }
+
+    /**
+     * Property: Applying a discount returns a discounted value but does not mutate the cart's raw total.
+     * Bug class caught: accidental mutation of cart state when applying a discount.
+     */
+    @Property
+    void applyDiscountDoesNotMutateCartTotal(
+            @ForAll("validProducts") Product product,
+            @ForAll @IntRange(min = 1, max = 100) int quantity,
+            @ForAll @DoubleRange(min = 0.0, max = 100.0) double discountRate
+    ) {
+        ShoppingCart cart = new ShoppingCart();
+        cart.addItem(product, quantity);
+
+        double rawTotal = cart.total();
+        double discounted = cart.applyDiscount(discountRate);
+
+        assertThat(discounted).isGreaterThanOrEqualTo(0.0);
+        assertThat(discounted).isLessThanOrEqualTo(rawTotal + 0.0001);
+        assertThat(cart.total()).isCloseTo(rawTotal, within(0.0001));
+    }
+
+    @Provide
+    Arbitrary<Product> validProducts() {
+        return Combinators.combine(
+                Arbitraries.strings().alpha().ofMinLength(1).ofMaxLength(12),
+                Arbitraries.doubles().between(0.01, 500.0),
+                Arbitraries.integers().between(0, 1_000)
+        ).as((name, price, stock) -> new Product("P-" + name, name, price, stock));
+    }
+
+    @Provide
+    Arbitrary<ProductPair> distinctProductPairs() {
+        Arbitrary<Double> prices = Arbitraries.doubles().between(0.01, 500.0);
+        Arbitrary<Integer> stockQuantities = Arbitraries.integers().between(0, 1_000);
+
+        return Combinators.combine(prices, prices, stockQuantities, stockQuantities)
+                .as((firstPrice, secondPrice, firstStock, secondStock) ->
+                        new ProductPair(
+                                new Product("P-FIRST", "First", firstPrice, firstStock),
+                                new Product("P-SECOND", "Second", secondPrice, secondStock)
+                        ));
+    }
+
+    private record ProductPair(Product first, Product second) {
+    }
 }
