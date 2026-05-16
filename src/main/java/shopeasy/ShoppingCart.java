@@ -32,17 +32,37 @@ public class ShoppingCart {
      * @param quantity number of units to add (must be > 0)
      */
     public void addItem(Product product, int quantity) {
-        // TODO (Task 3): add assert pre-condition here
+        assert product != null : "Product must not be null";
+        assert quantity > 0 : "Quantity must be > 0";
+
+        int previousItemCount = itemCount();
 
         for (CartItem item : items) {
             if (item.getProduct().getId().equals(product.getId())) {
+                int previousQuantity = item.getQuantity();
+
                 item.setQuantity(item.getQuantity() + quantity);
-                // TODO (Task 3): add assert post-condition here
+
+                assert itemCount() == previousItemCount
+                        : "Existing product should not create a new cart line";
+                assert item.getQuantity() == previousQuantity + quantity
+                        : "Existing product quantity should increase";
+                assert items.stream().anyMatch(cartItem ->
+                        cartItem.getProduct().getId().equals(product.getId()))
+                        : "Cart should contain the added product";
+                assert total() >= 0 : "Cart total invariant violated";
                 return;
             }
         }
+
         items.add(new CartItem(product, quantity));
-        // TODO (Task 3): add assert post-condition here
+
+        assert itemCount() == previousItemCount + 1
+                : "New product should increase cart line count";
+        assert items.stream().anyMatch(cartItem ->
+                cartItem.getProduct().getId().equals(product.getId()))
+                : "Cart should contain the added product";
+        assert total() >= 0 : "Cart total invariant violated";
     }
 
     /**
@@ -53,6 +73,7 @@ public class ShoppingCart {
      */
     public void removeItem(String productId) {
         items.removeIf(item -> item.getProduct().getId().equals(productId));
+        assert total() >= 0 : "Cart total invariant violated";
     }
 
     /**
@@ -67,6 +88,7 @@ public class ShoppingCart {
         for (CartItem item : items) {
             if (item.getProduct().getId().equals(productId)) {
                 item.setQuantity(quantity);
+                assert total() >= 0 : "Cart total invariant violated";
                 return;
             }
         }
@@ -86,12 +108,15 @@ public class ShoppingCart {
      * @return the total after applying the discount
      */
     public double applyDiscount(double discountRate) {
-        // TODO (Task 3): add assert pre-condition here
+        assert discountRate >= 0 && discountRate <= 100
+                : "Discount rate must be between 0 and 100";
 
         double rawTotal = total();
         double discounted = rawTotal - (rawTotal * discountRate / 100);
 
-        // TODO (Task 3): add assert post-condition here
+        assert discounted >= 0 : "Discounted total must be >= 0";
+        assert discountRate <= 0 || discounted <= rawTotal
+                : "Positive discount should not increase total";
         return discounted;
     }
 
@@ -127,6 +152,7 @@ public class ShoppingCart {
      */
     public void clear() {
         items.clear();
+        assert total() >= 0 : "Cart total invariant violated";
     }
 
     @Override
