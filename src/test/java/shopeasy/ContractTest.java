@@ -50,23 +50,162 @@ class ContractTest {
         product    = new Product("P001", "Widget", 10.0, 50);
     }
 
-    // -----------------------------------------------------------------------
-    // TODO: Write your contract tests below.
-    //
-    // EXAMPLE — pre-condition violation (fill in the correct assertion):
-    //
-    // @Test
-    // void addItem_nullProduct_shouldViolatePreCondition() {
-    //     assertThatThrownBy(() -> cart.addItem(null, 1))
-    //             .isInstanceOf(AssertionError.class);
-    // }
-    //
-    // EXAMPLE — pre-condition holds (valid input):
-    //
-    // @Test
-    // void addItem_validInput_shouldNotThrow() {
-    //     assertThatCode(() -> cart.addItem(product, 3)).doesNotThrowAnyException();
-    // }
-    // -----------------------------------------------------------------------
+    @Test
+    void addItem_validInput_shouldNotThrowAndUpdateCart() {
+        assertThatCode(() -> cart.addItem(product, 3)).doesNotThrowAnyException();
 
+        assertThat(cart.itemCount()).isEqualTo(1);
+        assertThat(cart.getItems().get(0).getQuantity()).isEqualTo(3);
+        assertThat(cart.total()).isCloseTo(30.0, within(0.0001));
+        assertThat(cart.total()).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void addItem_existingProduct_shouldIncreaseQuantityAndPreserveInvariant() {
+        cart.addItem(product, 2);
+
+        assertThatCode(() -> cart.addItem(product, 3)).doesNotThrowAnyException();
+
+        assertThat(cart.itemCount()).isEqualTo(1);
+        assertThat(cart.getItems().get(0).getQuantity()).isEqualTo(5);
+        assertThat(cart.total()).isCloseTo(50.0, within(0.0001));
+        assertThat(cart.total()).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void applyDiscount_zeroRate_shouldBeValid() {
+        cart.addItem(product, 2);
+
+        double result = cart.applyDiscount(0.0);
+
+        assertThat(result).isCloseTo(20.0, within(0.0001));
+        assertThat(result).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void applyDiscount_positiveRate_shouldReturnDiscountedNonNegativeResult() {
+        cart.addItem(product, 4);
+
+        double result = cart.applyDiscount(25.0);
+
+        assertThat(result).isCloseTo(30.0, within(0.0001));
+        assertThat(result).isLessThanOrEqualTo(cart.total());
+        assertThat(result).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void applyDiscount_hundredRate_shouldReturnZero() {
+        cart.addItem(product, 4);
+
+        double result = cart.applyDiscount(100.0);
+
+        assertThat(result).isCloseTo(0.0, within(0.0001));
+        assertThat(result).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void calculate_validValues_shouldReturnExpectedNonNegativeResult() {
+        double result = calculator.calculate(100.0, 10.0, 20.0);
+
+        assertThat(result).isCloseTo(108.0, within(0.0001));
+        assertThat(result).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void calculate_zeroBoundaryValues_shouldHoldContracts() {
+        double result = calculator.calculate(0.0, 0.0, 0.0);
+
+        assertThat(result).isCloseTo(0.0, within(0.0001));
+        assertThat(result).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void calculate_upperBoundaryValues_shouldHoldContracts() {
+        double result = calculator.calculate(100.0, 100.0, 100.0);
+
+        assertThat(result).isCloseTo(0.0, within(0.0001));
+        assertThat(result).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void updateQuantity_validInput_shouldPreserveInvariant() {
+        cart.addItem(product, 2);
+
+        cart.updateQuantity("P001", 5);
+
+        assertThat(cart.getItems().get(0).getQuantity()).isEqualTo(5);
+        assertThat(cart.total()).isCloseTo(50.0, within(0.0001));
+        assertThat(cart.total()).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void clear_shouldPreserveInvariant() {
+        cart.addItem(product, 2);
+
+        cart.clear();
+
+        assertThat(cart.itemCount()).isEqualTo(0);
+        assertThat(cart.total()).isCloseTo(0.0, within(0.0001));
+        assertThat(cart.total()).isGreaterThanOrEqualTo(0.0);
+    }
+
+    @Test
+    void addItem_nullProduct_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> cart.addItem(null, 1))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void addItem_zeroQuantity_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> cart.addItem(product, 0))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void addItem_negativeQuantity_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> cart.addItem(product, -1))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void applyDiscount_negativeRate_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> cart.applyDiscount(-1.0))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void applyDiscount_rateGreaterThanHundred_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> cart.applyDiscount(101.0))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void calculate_negativeBasePrice_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> calculator.calculate(-100.0, 10.0, 20.0))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void calculate_negativeDiscount_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> calculator.calculate(100.0, -10.0, 20.0))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void calculate_discountGreaterThanHundred_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> calculator.calculate(100.0, 101.0, 20.0))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void calculate_negativeTax_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> calculator.calculate(100.0, 10.0, -1.0))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void calculate_taxGreaterThanHundred_shouldViolatePreCondition() {
+        assertThatThrownBy(() -> calculator.calculate(100.0, 10.0, 101.0))
+                .isInstanceOf(AssertionError.class);
+    }
 }

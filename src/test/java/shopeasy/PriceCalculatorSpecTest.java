@@ -136,43 +136,38 @@ class PriceCalculatorSpecTest {
         assertThat(result).isCloseTo(1_032_500.0, within(0.0001));
     }
 
-    /** Invalid partition: negative basePrice — current implementation does not reject it and returns a negative result. */
+    /** Invalid partition: negative basePrice violates the Task 3 pre-condition. */
     @Test
-    void negativeBasePriceDocumentsCurrentBehavior() {
-        double result = calculator.calculate(-100.0, 10.0, 20.0);
-
-        assertThat(result).isCloseTo(-108.0, within(0.0001));
+    void negativeBasePriceViolatesContract() {
+        assertThatThrownBy(() -> calculator.calculate(-100.0, 10.0, 20.0))
+                .isInstanceOf(AssertionError.class);
     }
 
-    /** Invalid partition: negative discountRate — current implementation treats it like a price increase. */
+    /** Invalid partition: negative discountRate violates the Task 3 pre-condition. */
     @Test
-    void negativeDiscountRateDocumentsCurrentBehavior() {
-        double result = calculator.calculate(100.0, -10.0, 0.0);
-
-        assertThat(result).isCloseTo(110.0, within(0.0001));
+    void negativeDiscountRateViolatesContract() {
+        assertThatThrownBy(() -> calculator.calculate(100.0, -10.0, 0.0))
+                .isInstanceOf(AssertionError.class);
     }
 
-    /** Invalid partition: discountRate greater than 100% — current implementation can produce a negative price. */
+    /** Invalid partition: discountRate greater than 100% violates the Task 3 pre-condition. */
     @Test
-    void discountRateGreaterThanHundredDocumentsCurrentBehavior() {
-        double result = calculator.calculate(100.0, 150.0, 0.0);
-
-        assertThat(result).isCloseTo(-50.0, within(0.0001));
+    void discountRateGreaterThanHundredViolatesContract() {
+        assertThatThrownBy(() -> calculator.calculate(100.0, 150.0, 0.0))
+                .isInstanceOf(AssertionError.class);
     }
 
-    /** Invalid partition: negative taxRate — current implementation treats it like a price reduction. */
+    /** Invalid partition: negative taxRate violates the Task 3 pre-condition. */
     @Test
-    void negativeTaxRateDocumentsCurrentBehavior() {
-        double result = calculator.calculate(100.0, 0.0, -10.0);
-
-        assertThat(result).isCloseTo(90.0, within(0.0001));
+    void negativeTaxRateViolatesContract() {
+        assertThatThrownBy(() -> calculator.calculate(100.0, 0.0, -10.0))
+                .isInstanceOf(AssertionError.class);
     }
 
-    /** Invalid partition: taxRate greater than 100% — current implementation accepts it and increases the price heavily. */
+    /** Invalid partition: taxRate greater than 100% violates the Task 3 pre-condition. */
     @Test
-    void taxRateGreaterThanHundredDocumentsCurrentBehavior() {
-        double result = calculator.calculate(100.0, 0.0, 150.0);
-
-        assertThat(result).isCloseTo(250.0, within(0.0001));
+    void taxRateGreaterThanHundredViolatesContract() {
+        assertThatThrownBy(() -> calculator.calculate(100.0, 0.0, 150.0))
+                .isInstanceOf(AssertionError.class);
     }
 }
